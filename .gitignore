@@ -1,0 +1,42 @@
+# ─── Secrets ──────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+*.key
+*.pem
+*.secret
+
+# ─── Python ──────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# ─── IDE ─────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ──────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Docker ──────────────────────────────
+# pgdata and grafana_data are Docker volumes, not on disk
+
+# ─── Database files ──────────────────────
+*.db
+*.sqlite
+
+# ─── Test / Coverage ─────────────────────
+.coverage
+htmlcov/
+.pytest_cache/

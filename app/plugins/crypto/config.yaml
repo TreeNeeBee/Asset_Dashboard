@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────
+# Cryptocurrency Plugin Configuration
+# ─────────────────────────────────────────────────────────────
+
+# Fetch interval in milliseconds (minimum: 1ms)
+fetch_interval_ms: 60000
+
+# Data source settings
+source:
+  name: "CoinGecko Crypto"
+  provider: "crypto_coingecko"
+  base_url: "https://api.coingecko.com/api/v3"
+  description: "Cryptocurrency prices via CoinGecko free API"
+
+# Path to API key file (empty = no key needed)
+# Supports absolute path or relative to this config file's directory
+api_key_file: ""
+
+# Tracked assets
+assets:
+  - symbol: "BTC"
+    display_name: "Bitcoin"
+  - symbol: "ETH"
+    display_name: "Ethereum"
+  - symbol: "SOL"
+    display_name: "Solana"

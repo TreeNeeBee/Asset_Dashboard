@@ -1,0 +1,9 @@
+[project]
+name = "asset-dashboard"
+version = "1.0.0"
+description = "Asset Dashboard: Python + TradingView + Grafana + Database"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

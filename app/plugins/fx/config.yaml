@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────
+# Foreign Exchange Plugin Configuration
+# ─────────────────────────────────────────────────────────────
+
+# Fetch interval in milliseconds (minimum: 1ms)
+fetch_interval_ms: 120000
+
+# Data source settings
+source:
+  name: "ExchangeRate FX"
+  provider: "fx_exchange_rate"
+  base_url: "https://open.er-api.com/v6"
+  description: "Foreign exchange rates via ExchangeRate-API"
+
+# Path to API key file (empty = no key needed for free tier)
+# Supports absolute path or relative to this config file's directory
+api_key_file: ""
+
+# Tracked assets
+assets:
+  - symbol: "USD/CNY"
+    display_name: "US Dollar / Chinese Yuan"
+  - symbol: "EUR/USD"
+    display_name: "Euro / US Dollar"
+  - symbol: "GBP/USD"
+    display_name: "British Pound / US Dollar"
+  - symbol: "USD/JPY"
+    display_name: "US Dollar / Japanese Yen"

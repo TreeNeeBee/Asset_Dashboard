@@ -1,0 +1,171 @@
+{
+    "uid": "asset_dashboard_main",
+    "title": "Asset Dashboard",
+    "tags": ["asset", "crypto", "stock", "fx"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 3,
+    "refresh": "5s",
+    "time": { "from": "now-7d", "to": "now" },
+    "panels": [
+      {
+        "id": 1,
+        "type": "table",
+        "title": "Latest Prices (All Assets)",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/prices?size=50",
+            "url_options": { "method": "GET" },
+            "root_selector": "items",
+            "columns": [
+              { "selector": "asset_id", "text": "Asset ID", "type": "number" },
+              { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+              { "selector": "open", "text": "Open", "type": "number" },
+              { "selector": "high", "text": "High", "type": "number" },
+              { "selector": "low", "text": "Low", "type": "number" },
+              { "selector": "close", "text": "Close", "type": "number" },
+              { "selector": "volume", "text": "Volume", "type": "number" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "timeseries",
+        "title": "BTC / USD",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/prices?asset_id=1&size=500",
+            "url_options": { "method": "GET" },
+            "root_selector": "items",
+            "columns": [
+              { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+              { "selector": "close", "text": "Close", "type": "number" }
+            ]
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "timeseries",
+        "title": "Stock — AAPL",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/prices?asset_id=2&size=500",
+            "url_options": { "method": "GET" },
+            "root_selector": "items",
+            "columns": [
+              { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+              { "selector": "close", "text": "Close", "type": "number" }
+            ]
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "title": "FX — USD/CNY",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/prices?asset_id=3&size=500",
+            "url_options": { "method": "GET" },
+            "root_selector": "items",
+            "columns": [
+              { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+              { "selector": "close", "text": "Close", "type": "number" }
+            ]
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Source Count",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/sources?size=1",
+            "url_options": { "method": "GET" },
+            "root_selector": "",
+            "columns": [
+              { "selector": "total", "text": "Sources", "type": "number" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Asset Count",
+        "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 16 },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "PD043CF1CCE24D2D7" },
+            "type": "json",
+            "parser": "backend",
+            "source": "url",
+            "url": "http://api:8000/api/v1/assets?size=1",
+            "url_options": { "method": "GET" },
+            "root_selector": "",
+            "columns": [
+              { "selector": "total", "text": "Assets", "type": "number" }
+            ]
+          }
+        ]
+      }
+    ]
+}

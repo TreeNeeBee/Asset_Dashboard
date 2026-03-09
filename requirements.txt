@@ -1,0 +1,27 @@
+# Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+asyncpg==0.29.0
+aiosqlite==0.19.0
+
+# HTTP / Data fetching
+httpx==0.26.0
+aiohttp==3.9.1
+
+# Scheduling
+apscheduler==3.10.4
+
+# Grafana provisioning
+grafana-client==3.5.0
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2
+orjson==3.9.12
+PyYAML==6.0.1
