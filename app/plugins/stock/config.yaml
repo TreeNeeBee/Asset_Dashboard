@@ -1,28 +1,23 @@
-# ─────────────────────────────────────────────────────────────
-# US Stock Plugin Configuration
-# ─────────────────────────────────────────────────────────────
-
-# Fetch interval in milliseconds (minimum: 1ms)
-fetch_interval_ms: 1000
-
-# Data source settings
+key: stock
+name: US Stocks
+category: stock
+description: US stock quotes via Stooq (AAPL, MSFT, GOOGL, TSLA …)
+version: 1.0.0
+panel_title_prefix: Stock
+close_column_label: Close
+fetch_interval_ms: 300000
 source:
-  name: "Stooq Stocks"
-  provider: "stock_stooq"
-  base_url: "https://stooq.com"
-  description: "US stock quotes via Stooq (free)"
-
-# Path to API key file (empty = no key needed for Stooq)
-# Supports absolute path or relative to this config file's directory
-api_key_file: ""
-
-# Tracked assets
+  name: Stooq Stocks
+  provider: stock_stooq
+  base_url: https://stooq.com
+  description: US stock quotes via Stooq (free)
+api_key_file: ''
 assets:
-  - symbol: "AAPL"
-    display_name: "Apple Inc."
-  - symbol: "MSFT"
-    display_name: "Microsoft Corp."
-  - symbol: "GOOGL"
-    display_name: "Alphabet Inc."
-  - symbol: "TSLA"
-    display_name: "Tesla Inc."
+- symbol: AAPL
+  display_name: Apple Inc.
+- symbol: MSFT
+  display_name: Microsoft Corp.
+- symbol: GOOGL
+  display_name: Alphabet Inc.
+- symbol: TSLA
+  display_name: Tesla Inc.

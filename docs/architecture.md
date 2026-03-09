@@ -45,46 +45,98 @@ Asset Dashboard 是一个 **统一资产看板系统**，采用 FastAPI + Postgr
 
 ## 3. MVVM 插件架构
 
-每个资产类型（crypto / stock / fx）是一个独立插件，遵循 **MVVM（Model-View-ViewModel）** 分层模式：
+每个资产类型（crypto / stock / fx）是一个独立插件，遵循 **MVVM（Model-View-ViewModel）** 分层模式。
+
+框架代码拆分为四个模块，保持关注点分离：
 
 ```
-app/plugins/<plugin_name>/
-├── __init__.py       # ViewModel — 入口，绑定 M↔V，管理配置
-├── config.yaml       # Config   — 独立 YAML 配置文件
-├── model.py          # Model    — 数据提供者 + 种子数据
-├── provider.py       # Provider — 具体 API 调用实现
-└── view.py           # View     — Grafana 面板定义
+app/plugins/
+├── __init__.py       # 公共 API 再导出 + plugin_manager 单例
+├── base.py           # 抽象基类 + 数据类型（BasePlugin, IntervalConfig, GrafanaPanelDef …）
+├── config.py         # PluginConfig — 读写 config.yaml（含元数据 + 面板配置）
+├── defaults.py       # 配置驱动的默认实现（DefaultPluginModel, DefaultPluginView, DeclarativePlugin）
+└── manager.py        # PluginManager — 自动发现 + Provider 注册
 ```
 
-### 3.1 各层职责
+### 3.1 声明式插件（推荐）
 
-#### Model (`BasePluginModel`)
-- 定义数据源的默认配置（名称、provider key、base_url）
-- 定义默认资产列表（symbol + display_name）
-- 持有 `PluginConfig` 引用，优先从 YAML 读取配置
-- 返回 `BaseDataProvider` 的具体实现类
+标准插件只需 **2 个文件**：
 
-#### View (`BasePluginView`)
-- 声明式定义 Grafana 面板（`GrafanaPanelDef`）
-- 指定面板类型（time-series / table / stat 等）
-- 指定数据 URL、字段映射、样式配置
-- 纯展示层，不依赖任何业务逻辑
+```
+app/plugins/<name>/
+├── config.yaml       # 元数据 + 数据源 + 面板配置 + 资产列表
+└── provider.py       # 具体 API 调用实现
+```
 
-#### ViewModel (`BasePlugin`)
-- **核心协调者**：绑定 Model 和 View
-- 管理插件元数据（key / name / category / version）
-- 管理 `IntervalConfig`（采集频率，最小 1ms）
-- 管理 `PluginConfig`（YAML 配置的读写）
-- 合并 YAML 配置与硬编码默认值
+再加上一个 **3 行入口**：
+
+```python
+# app/plugins/<name>/__init__.py
+from app.plugins.defaults import create_plugin
+from .<name>.provider import XProvider
+
+plugin = create_plugin(__file__, XProvider)
+```
+
+`create_plugin()` 会自动读取 `config.yaml`，生成 DefaultPluginModel、DefaultPluginView 和 DeclarativePlugin。
+
+### 3.2 config.yaml 完整格式
+
+```yaml
+# 插件元数据（声明式必填）
+key: "crypto"
+name: "Cryptocurrency"
+category: "crypto"
+description: "Cryptocurrency prices via CoinGecko free API"
+version: "1.0.0"
+
+# Grafana 面板显示（由 DefaultPluginView 使用）
+panel_title_prefix: "Crypto"
+close_column_label: "Close"
+
+# 采集间隔
+fetch_interval_ms: 60000
+
+# 数据源
+source:
+  name: "CoinGecko Crypto"
+  provider: "crypto_coingecko"
+  base_url: "https://api.coingecko.com/api/v3"
+  description: "..."
+
+api_key_file: ""
+
+# 资产列表
+assets:
+  - symbol: "BTC"
+    display_name: "Bitcoin"
+```
+
+### 3.3 各层职责
+
+#### Config (`PluginConfig` — `config.py`)
+- 读写插件目录下的 `config.yaml`
+- 提供全部标准字段的类型化访问器：`key`、`plugin_name`、`category`、`description`、`version`、`panel_title_prefix`、`close_column_label`、`fetch_interval_ms`、`source`、`assets`
+- 支持 `read_api_key()` 从文件路径读取 API Key
+- 额外自定义字段通过 `get()` / `set()` 访问
+
+#### Model (`DefaultPluginModel` — `defaults.py`)
+- 从 `config.yaml` 读取数据源配置和资产列表
+- 仅需传入 Provider 类（不是实例）
+- 如需自定义，继承 `BasePluginModel` 并传给 `create_plugin(model=...)`
+
+#### View (`DefaultPluginView` — `defaults.py`)
+- 从 `config.yaml` 读取 `panel_title_prefix` 和 `close_column_label`
+- 自动生成标准时序面板（timeseries）
+- 如需自定义面板样式，继承 `BasePluginView` 并传给 `create_plugin(view=...)`
+
+#### ViewModel (`DeclarativePlugin` / `BasePlugin` — `base.py` + `defaults.py`)
+- 核心协调者：绑定 Model ↔ View
+- 从 `config.yaml` 读取元数据（key / name / category / version / description）
+- `update_interval(ms)` 同步更新 IntervalConfig 和 PluginConfig（消除双重状态）
 - 可选提供额外的 API Router
 
-#### Config (`PluginConfig`)
-- 读写插件目录下的 `config.yaml` 文件
-- 提供类型化的属性访问器：`fetch_interval_ms`、`source`、`api_key_file`、`assets`
-- 支持 `read_api_key()` 从文件路径读取 API Key
-- 额外自定义字段通过 `get()` / `set()` 访问，保存时不会丢失
-
-### 3.2 MVVM 数据流
+### 3.4 MVVM 数据流
 
 ```
                     ┌──────────────┐

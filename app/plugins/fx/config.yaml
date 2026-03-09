@@ -2,6 +2,17 @@
 # Foreign Exchange Plugin Configuration
 # ─────────────────────────────────────────────────────────────
 
+# Plugin metadata
+key: "fx"
+name: "Foreign Exchange"
+category: "fx"
+description: "Foreign exchange rates via ExchangeRate-API (USD/CNY, EUR/USD …)"
+version: "1.0.0"
+
+# Grafana panel display
+panel_title_prefix: "FX"
+close_column_label: "Rate"
+
 # Fetch interval in milliseconds (minimum: 1ms)
 fetch_interval_ms: 120000
 
@@ -12,8 +23,7 @@ source:
   base_url: "https://open.er-api.com/v6"
   description: "Foreign exchange rates via ExchangeRate-API"
 
-# Path to API key file (empty = no key needed for free tier)
-# Supports absolute path or relative to this config file's directory
+# API key file path (empty = no key needed)
 api_key_file: ""
 
 # Tracked assets

@@ -175,8 +175,7 @@ def create_app() -> FastAPI:
 
         changed = False
         if body.fetch_interval_ms is not None:
-            plug.config.fetch_interval_ms = body.fetch_interval_ms
-            plug.interval.update(body.fetch_interval_ms)
+            plug.update_interval(body.fetch_interval_ms)
             changed = True
         if body.source is not None:
             plug.config.source = body.source
@@ -223,11 +222,10 @@ def create_app() -> FastAPI:
             raise HTTPException(404, f"Plugin '{plugin_key}' not found")
 
         plug = plugin_manager.get(plugin_key)
-        plug.interval.update(body.fetch_interval_ms)
+        plug.update_interval(body.fetch_interval_ms)
 
         # Persist to config.yaml
         if plug.config:
-            plug.config.fetch_interval_ms = body.fetch_interval_ms
             plug.config.save()
 
         # Persist to DB

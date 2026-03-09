@@ -2,6 +2,17 @@
 # Cryptocurrency Plugin Configuration
 # ─────────────────────────────────────────────────────────────
 
+# Plugin metadata
+key: "crypto"
+name: "Cryptocurrency"
+category: "crypto"
+description: "Cryptocurrency prices via CoinGecko free API (BTC, ETH, SOL …)"
+version: "1.0.0"
+
+# Grafana panel display
+panel_title_prefix: "Crypto"
+close_column_label: "Close"
+
 # Fetch interval in milliseconds (minimum: 1ms)
 fetch_interval_ms: 60000
 
@@ -12,8 +23,7 @@ source:
   base_url: "https://api.coingecko.com/api/v3"
   description: "Cryptocurrency prices via CoinGecko free API"
 
-# Path to API key file (empty = no key needed)
-# Supports absolute path or relative to this config file's directory
+# API key file path (empty = no key needed)
 api_key_file: ""
 
 # Tracked assets

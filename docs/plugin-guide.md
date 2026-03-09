@@ -64,15 +64,13 @@
 
 ### 2.1 目录结构
 
-在 `app/plugins/` 下创建新子包：
+在 `app/plugins/` 下创建新子包（声明式插件只需 3 个文件）：
 
 ```
 app/plugins/metal/
-├── __init__.py       # ViewModel — 插件入口
-├── config.yaml       # 配置文件
-├── model.py          # Model — 数据源定义
-├── provider.py       # Provider — API 调用实现
-└── view.py           # View — Grafana 面板定义
+├── __init__.py       # 入口 — 3 行即可
+├── config.yaml       # 元数据 + 数据源 + 面板 + 资产
+└── provider.py       # Provider — API 调用实现
 ```
 
 ### 2.2 Step 1: 实现 Provider
@@ -147,105 +145,26 @@ class MetalProvider(BaseDataProvider):
 - `fetch_history()` 可返回空列表（如不支持历史查询）
 - 建议在 `close()` 中释放 HTTP 客户端
 
-### 2.3 Step 2: 实现 Model
+### 2.3 Step 2: 创建配置文件
 
-Model 定义数据源的默认配置和资产列表。
-
-```python
-# app/plugins/metal/model.py
-"""贵金属插件 — Model 层."""
-
-from __future__ import annotations
-
-from typing import Any
-
-from app.plugins import BasePluginModel, PluginConfig
-from app.plugins.metal.provider import MetalProvider
-from app.providers import BaseDataProvider
-
-
-class MetalModel(BasePluginModel):
-    """数据层：MetalPrice Provider + 默认贵金属资产."""
-
-    def __init__(self, config: PluginConfig | None = None) -> None:
-        super().__init__(config)
-
-    def provider_class(self) -> type[BaseDataProvider]:
-        # ❶ 返回 Provider 类（不是实例）
-        return MetalProvider
-
-    def default_source(self) -> dict[str, Any]:
-        # ❷ 优先从 config.yaml 读取，否则使用硬编码默认值
-        if self._config and self._config.source:
-            return dict(self._config.source)
-        return {
-            "name": "Metal Prices",
-            "provider": MetalProvider.PROVIDER_KEY,
-            "base_url": "https://api.metalprice.example.com",
-            "description": "Precious metal prices (Gold, Silver)",
-        }
-
-    def default_assets(self) -> list[dict[str, str]]:
-        # ❸ 优先从 config.yaml 读取
-        if self._config and self._config.assets:
-            return self._config.assets
-        return [
-            {"symbol": "XAU", "display_name": "Gold (Troy Oz)"},
-            {"symbol": "XAG", "display_name": "Silver (Troy Oz)"},
-        ]
-```
-
-### 2.4 Step 3: 实现 View
-
-View 定义 Grafana 面板。
-
-```python
-# app/plugins/metal/view.py
-"""贵金属插件 — View 层 (Grafana 面板)."""
-
-from __future__ import annotations
-
-from app.plugins import BasePluginView, GrafanaPanelDef
-
-
-class MetalView(BasePluginView):
-    """展示层：为每种贵金属生成时序图面板."""
-
-    def grafana_panels(
-        self, source_id: int, asset_map: dict[str, int],
-    ) -> list[GrafanaPanelDef]:
-        panels: list[GrafanaPanelDef] = []
-        for symbol, asset_id in asset_map.items():
-            panels.append(
-                GrafanaPanelDef(
-                    panel_type="timeseries",
-                    title=f"Metal — {symbol}",
-                    width=12,
-                    height=8,
-                    url_path=f"/api/v1/prices?asset_id={asset_id}&size=500",
-                    root_selector="items",
-                    columns=[
-                        {"selector": "timestamp", "text": "Time", "type": "timestamp"},
-                        {"selector": "close", "text": "Price (USD)", "type": "number"},
-                    ],
-                    field_config={
-                        "defaults": {
-                            "color": {"mode": "palette-classic"},
-                            "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10},
-                        }
-                    },
-                )
-            )
-        return panels
-```
-
-### 2.5 Step 4: 创建配置文件
+声明式插件的所有配置（元数据 + 数据源 + 面板 + 资产）都在 `config.yaml` 中：
 
 ```yaml
 # app/plugins/metal/config.yaml
 # ─────────────────────────────────────────────────────────────
 # Precious Metal Plugin Configuration
 # ─────────────────────────────────────────────────────────────
+
+# 插件元数据
+key: "metal"
+name: "Precious Metals"
+category: "custom"
+description: "Precious metal prices — Gold, Silver"
+version: "1.0.0"
+
+# Grafana 面板显示
+panel_title_prefix: "Metal"
+close_column_label: "Price (USD)"
 
 # Fetch interval in milliseconds (minimum: 1ms)
 fetch_interval_ms: 300000
@@ -257,7 +176,7 @@ source:
   base_url: "https://api.metalprice.example.com"
   description: "Precious metal prices (Gold, Silver)"
 
-# Path to API key file (empty = no key needed)
+# API key file path (empty = no key needed)
 api_key_file: ""
 
 # Tracked assets
@@ -268,60 +187,43 @@ assets:
     display_name: "Silver (Troy Oz)"
 ```
 
-### 2.6 Step 5: 实现 ViewModel（插件入口）
+**config.yaml 标准字段说明**：
 
-这是插件的 **入口文件**，PluginManager 通过模块级 `plugin` 变量自动发现它。
+| 字段 | 说明 |
+|------|------|
+| `key` | 唯一标识符（与目录名一致） |
+| `name` | 显示名称 |
+| `category` | 分类（`crypto` / `stock` / `fx` / `custom`） |
+| `description` | 描述文字 |
+| `version` | 插件版本 |
+| `panel_title_prefix` | Grafana 面板标题前缀（如 "Metal — XAU"） |
+| `close_column_label` | 面板中价格列的标签（如 "Price (USD)"、"Close"、"Rate"） |
+| `fetch_interval_ms` | 采集间隔（毫秒） |
+| `source` | 数据源配置 |
+| `api_key_file` | API Key 文件路径（空 = 不需要） |
+| `assets` | 资产列表 |
+
+### 2.4 Step 3: 创建入口文件
+
+声明式插件的入口只需 **3 行代码**：
 
 ```python
 # app/plugins/metal/__init__.py
-"""贵金属插件 — ViewModel (MVVM 入口)."""
+"""贵金属插件 — 声明式配置."""
 
-from __future__ import annotations
+from app.plugins.defaults import create_plugin
+from app.plugins.metal.provider import MetalProvider
 
-from pathlib import Path
-
-from app.models import SourceCategory
-from app.plugins import BasePlugin, IntervalConfig, PluginConfig
-from app.plugins.metal.model import MetalModel
-from app.plugins.metal.view import MetalView
-
-_CONFIG_PATH = Path(__file__).parent / "config.yaml"
-
-
-class MetalPlugin(BasePlugin):
-    """ViewModel：贵金属价格追踪."""
-
-    def __init__(self) -> None:
-        cfg = PluginConfig(_CONFIG_PATH)
-        super().__init__(
-            model=MetalModel(config=cfg),
-            view=MetalView(),
-            interval=IntervalConfig(fetch_interval_ms=300_000),
-            config=cfg,
-        )
-
-    @property
-    def key(self) -> str:
-        return "metal"          # ❶ 唯一标识符
-
-    @property
-    def name(self) -> str:
-        return "Precious Metals" # ❷ 显示名称
-
-    @property
-    def description(self) -> str:
-        return "Precious metal prices — Gold, Silver"
-
-    @property
-    def category(self) -> SourceCategory:
-        return SourceCategory.CUSTOM  # ❸ 分类（CRYPTO/STOCK/FX/CUSTOM）
-
-
-# ❹ 必须暴露 module-level `plugin` 变量
-plugin = MetalPlugin()
+plugin = create_plugin(__file__, MetalProvider)
 ```
 
-### 2.7 Step 6: 验证
+`create_plugin()` 会自动：
+1. 读取同目录下的 `config.yaml`
+2. 生成 `DefaultPluginModel`（读取 source + assets）
+3. 生成 `DefaultPluginView`（生成标准时序面板）
+4. 生成 `DeclarativePlugin`（读取元数据）
+
+### 2.5 Step 4: 验证
 
 ```bash
 # 重新构建并启动
@@ -367,38 +269,55 @@ async def fetch_history(symbol, start, end) -> list[PricePoint] # 历史价格
 async def close() -> None                                # 资源释放（建议）
 ```
 
-#### Model (`BasePluginModel`)
-```python
-def provider_class() -> type[BaseDataProvider]    # Provider 类
-def default_source() -> dict[str, Any]            # 数据源默认配置
-def default_assets() -> list[dict[str, str]]      # 默认资产列表
-```
+> **声明式插件**只需实现 Provider + 编写 config.yaml，Model / View / ViewModel 由框架自动生成。
 
-#### View (`BasePluginView`)
-```python
-def grafana_panels(source_id, asset_map) -> list[GrafanaPanelDef]  # Grafana 面板
-```
+#### 高级场景：自定义 Model / View
 
-#### ViewModel (`BasePlugin`)
+如果标准时序面板不能满足需求，可自定义 Model 或 View：
+
 ```python
-key: str                    # 唯一标识（属性）
-name: str                   # 显示名称（属性）
-category: SourceCategory    # 分类（属性）
+# 自定义 View 示例
+from app.plugins import BasePluginView, GrafanaPanelDef
+
+class CustomView(BasePluginView):
+    def grafana_panels(self, source_id, asset_map):
+        # 返回自定义面板列表
+        ...
+
+# 在 __init__.py 中传入
+plugin = create_plugin(__file__, MyProvider, view=CustomView())
 ```
 
 ### 3.3 config.yaml 规范
 
-必须包含以下顶级字段：
+标准字段（声明式必填）：
 
 ```yaml
-fetch_interval_ms: 60000     # 必填，采集间隔（ms）
-source:                       # 必填，数据源信息
+# 元数据
+key: "metal"                  # 唯一标识
+name: "Precious Metals"       # 显示名称
+category: "custom"            # 分类 (crypto/stock/fx/custom)
+description: "..."            # 描述
+version: "1.0.0"              # 版本
+
+# 面板显示
+panel_title_prefix: "Metal"   # Grafana 面板标题前缀
+close_column_label: "Close"   # 价格列标签（Close / Rate / Price …）
+
+# 采集
+fetch_interval_ms: 60000     # 采集间隔（ms）
+
+# 数据源
+source:
   name: "..."
   provider: "..."
   base_url: "..."
   description: "..."
-api_key_file: ""              # 必填（空字符串 = 无 Key）
-assets:                       # 可选，资产列表
+
+api_key_file: ""              # API Key 文件路径
+
+# 资产
+assets:
   - symbol: "..."
     display_name: "..."
 ```
@@ -417,8 +336,9 @@ PluginManager 的 `discover()` 方法会：
 
 > **因此，要让新插件生效，只需：**
 > 1. 在 `app/plugins/` 下创建子包
-> 2. 在 `__init__.py` 中定义 `plugin = YourPlugin()`
-> 3. 重启服务
+> 2. 编写 `config.yaml` + `provider.py`
+> 3. 在 `__init__.py` 中调用 `plugin = create_plugin(__file__, MyProvider)`
+> 4. 重启服务
 
 ### 3.5 API Key 管理
 
@@ -476,10 +396,16 @@ class SourceCategory(str, enum.Enum):
 | `BaseDataProvider` | `app.providers` | 数据提供者抽象基类 |
 | `PricePoint` | `app.providers` | 标准化价格数据点 |
 | `ProviderRegistry` | `app.providers` | Provider 单例注册表 |
-| `BasePlugin` | `app.plugins` | ViewModel 抽象基类 |
-| `BasePluginModel` | `app.plugins` | Model 抽象基类 |
-| `BasePluginView` | `app.plugins` | View 抽象基类 |
-| `PluginConfig` | `app.plugins` | YAML 配置读写器 |
-| `PluginManager` | `app.plugins` | 插件管理器（单例） |
-| `IntervalConfig` | `app.plugins` | 采集间隔配置 |
-| `GrafanaPanelDef` | `app.plugins` | Grafana 面板声明描述符 |
+| `BasePlugin` | `app.plugins.base` | ViewModel 抽象基类 |
+| `BasePluginModel` | `app.plugins.base` | Model 抽象基类 |
+| `BasePluginView` | `app.plugins.base` | View 抽象基类 |
+| `DeclarativePlugin` | `app.plugins.defaults` | 配置驱动的 ViewModel（推荐） |
+| `DefaultPluginModel` | `app.plugins.defaults` | 配置驱动的 Model |
+| `DefaultPluginView` | `app.plugins.defaults` | 配置驱动的 View |
+| `create_plugin()` | `app.plugins.defaults` | 声明式插件工厂函数 |
+| `PluginConfig` | `app.plugins.config` | YAML 配置读写器 |
+| `PluginManager` | `app.plugins.manager` | 插件管理器（单例） |
+| `IntervalConfig` | `app.plugins.base` | 采集间隔配置 |
+| `GrafanaPanelDef` | `app.plugins.base` | Grafana 面板声明描述符 |
+
+> 所有类均可从 `app.plugins` 直接导入（向后兼容）。
