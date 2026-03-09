@@ -18,7 +18,21 @@ async def get_session() -> AsyncSession:  # type: ignore[misc]
 
 async def init_db() -> None:
     """Create all tables (dev convenience — use Alembic in production)."""
-    from app.models import Base  # noqa: F811
+    from app.models import Base, SourceCategory  # noqa: F811
+    from sqlalchemy import text
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Ensure the DB enum contains every Python-side value
+    # (handles upgrades when new categories are added)
+    for cat in SourceCategory:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        f"ALTER TYPE sourcecategory ADD VALUE IF NOT EXISTS '{cat.name}'"
+                    )
+                )
+        except Exception:
+            pass  # value already exists or fresh DB

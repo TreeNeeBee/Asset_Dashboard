@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────
+# A-Share (China) Plugin Configuration
+# ─────────────────────────────────────────────────────────────
+
+# Plugin metadata
+key: "ashare"
+name: "A股行情"
+category: "ashare"
+description: "中国A股实时行情 — 通过新浪财经获取（上证指数、深证指数、个股 …）"
+version: "1.0.0"
+
+# Grafana panel display
+panel_title_prefix: "A股"
+close_column_label: "最新价"
+
+# Fetch interval in milliseconds (5 minutes)
+fetch_interval_ms: 300000
+
+# Data source settings
+source:
+  name: "Sina A-Share"
+  provider: "ashare_sina"
+  base_url: "https://hq.sinajs.cn"
+  description: "China A-share prices via Sina Finance"
+
+# API key file path (empty = no key needed)
+api_key_file: ""
+
+# Tracked assets (Yahoo Finance symbol format)
+assets:
+  - symbol: "000001.SS"
+    display_name: "上证指数"
+  - symbol: "399001.SZ"
+    display_name: "深证成指"
+  - symbol: "162411.SZ"
+    display_name: "华宝油气LOF"
+  - symbol: "002192.SZ"
+    display_name: "融捷股份"
+  - symbol: "601138.SS"
+    display_name: "工业富联"
+  - symbol: "600611.SS"
+    display_name: "大众交通"
+  - symbol: "002256.SZ"
+    display_name: "兆新股份"

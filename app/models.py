@@ -38,6 +38,7 @@ class SourceCategory(str, enum.Enum):
     CRYPTO = "crypto"
     STOCK = "stock"
     FX = "fx"
+    ASHARE = "ashare"
     CUSTOM = "custom"
 
 
