@@ -16,9 +16,10 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://asset:asset@postgres:5432/asset_db
       FETCH_INTERVAL: 300
+      TZ: Asia/Shanghai
     volumes:
       - dashboard_json:/app/grafana/dashboards
-      - ./app/plugins:/app/app/plugins
+      - ./app:/app/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,6 +33,8 @@ services:
       POSTGRES_USER: asset
       POSTGRES_PASSWORD: asset
       POSTGRES_DB: asset_db
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
     ports:
       - "5432:5432"
     volumes:
@@ -54,6 +57,8 @@ services:
       GF_INSTALL_PLUGINS: yesoreyeram-infinity-datasource
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: 1s
+      TZ: Asia/Shanghai
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - dashboard_json:/var/lib/grafana/dashboards

@@ -94,6 +94,9 @@ class Asset(Base):
 
 class PriceRecord(Base):
     __tablename__ = "price_records"
+    __table_args__ = (
+        UniqueConstraint("asset_id", "timestamp", name="uq_price_asset_ts"),
+    )
 
     id: int = Column(Integer, primary_key=True, autoincrement=True)
     asset_id: int = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)

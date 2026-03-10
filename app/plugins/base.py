@@ -49,6 +49,7 @@ class GrafanaPanelDef:
     root_selector: str = "items"
     columns: list[dict[str, str]] = field(default_factory=list)
     field_config: dict[str, Any] = field(default_factory=dict)
+    groups: list[str] = field(default_factory=list)  # tab groups this panel belongs to
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from loguru import logger
 from sqlalchemy import select
+from sqlalchemy import and_
 
 from app.database import async_session_factory
 from app.models import Asset, DataSource, PriceRecord
@@ -45,13 +46,28 @@ async def _fetch_single_source(source_id: int) -> None:
 
         try:
             points = await provider.fetch_latest(symbols)
+            new_count = 0
             for pt in points:
                 asset = sym_map.get(pt.symbol)
                 if not asset:
                     continue
+                ts = pt.timestamp or datetime.now(timezone.utc)
+                # ── Dedup: skip if (asset_id, timestamp) already exists ──
+                exists = (
+                    await session.execute(
+                        select(PriceRecord.id).where(
+                            and_(
+                                PriceRecord.asset_id == asset.id,
+                                PriceRecord.timestamp == ts,
+                            )
+                        ).limit(1)
+                    )
+                ).scalar_one_or_none()
+                if exists is not None:
+                    continue
                 rec = PriceRecord(
                     asset_id=asset.id,
-                    timestamp=pt.timestamp or datetime.now(timezone.utc),
+                    timestamp=ts,
                     open=pt.open,
                     high=pt.high,
                     low=pt.low,
@@ -60,8 +76,9 @@ async def _fetch_single_source(source_id: int) -> None:
                     extra_json=str(pt.extra) if pt.extra else None,
                 )
                 session.add(rec)
+                new_count += 1
             await session.commit()
-            logger.info("Fetched {} points from source '{}'", len(points), src.name)
+            logger.info("Fetched {} points ({} new) from source '{}'", len(points), new_count, src.name)
         except Exception:
             logger.exception("Error fetching from source '{}'", src.name)
         finally:

@@ -56,6 +56,18 @@ async def lifespan(application: FastAPI):  # noqa: ARG001
     logger.info("Initialising database …")
     await init_db()
 
+    # ── Regenerate Grafana dashboards from DB + plugins ───────────
+    logger.info("Regenerating Grafana dashboards …")
+    try:
+        from app.routers.dashboard import _build_maps
+        from app.grafana import export_dashboard_json
+        from app.database import async_session_factory
+        async with async_session_factory() as session:
+            source_map, asset_map = await _build_maps(session)
+        export_dashboard_json(source_map=source_map, asset_map=asset_map)
+    except Exception:
+        logger.exception("Failed to regenerate Grafana dashboards (non-fatal)")
+
     logger.info("Starting background scheduler …")
     start_scheduler()
     await sync_scheduler_jobs()

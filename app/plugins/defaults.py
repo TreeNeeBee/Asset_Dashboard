@@ -88,12 +88,21 @@ class DefaultPluginView(BasePluginView):
         prefix = self._config.panel_title_prefix if self._config else ""
         label = self._config.close_column_label if self._config else "Close"
 
+        # Build symbol → display_name / groups lookups from config
+        display_map: dict[str, str] = {}
+        groups_map: dict[str, list[str]] = {}
+        if self._config and self._config.assets:
+            for a in self._config.assets:
+                display_map[a["symbol"]] = a.get("display_name", a["symbol"])
+                groups_map[a["symbol"]] = a.get("groups", [])
+
         panels: list[GrafanaPanelDef] = []
         for symbol, asset_id in asset_map.items():
+            display = display_map.get(symbol, symbol)
             panels.append(
                 GrafanaPanelDef(
                     panel_type="timeseries",
-                    title=f"{prefix} — {symbol}",
+                    title=f"{prefix} — {display}",
                     width=12,
                     height=8,
                     url_path=f"/api/v1/prices?asset_id={asset_id}&size=500",
@@ -112,6 +121,7 @@ class DefaultPluginView(BasePluginView):
                             },
                         }
                     },
+                    groups=groups_map.get(symbol, []),
                 )
             )
         return panels

@@ -30,15 +30,22 @@ api_key_file: ""
 assets:
   - symbol: "000001.SS"
     display_name: "上证指数"
+    groups: ["指数"]
   - symbol: "399001.SZ"
     display_name: "深证成指"
+    groups: ["指数"]
   - symbol: "162411.SZ"
     display_name: "华宝油气LOF"
+    groups: ["基金"]
   - symbol: "002192.SZ"
     display_name: "融捷股份"
+    groups: ["个股"]
   - symbol: "601138.SS"
     display_name: "工业富联"
+    groups: ["个股"]
   - symbol: "600611.SS"
     display_name: "大众交通"
+    groups: ["个股"]
   - symbol: "002256.SZ"
     display_name: "兆新股份"
+    groups: ["个股"]

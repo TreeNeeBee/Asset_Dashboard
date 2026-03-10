@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
 
 import httpx
@@ -96,7 +97,7 @@ class AShareProvider(BaseDataProvider):
     #  8: 成交量 (volume, unit varies)
     #  9: 成交额 (turnover)
     # 30: 日期 (YYYY-MM-DD)
-    # 31: 时间 (HH:MM:SS)
+    # 31: 时间 (HH:MM:SS)  — **China Standard Time (UTC+8)**
 
     IDX_OPEN = 1
     IDX_CLOSE = 3
@@ -105,6 +106,9 @@ class AShareProvider(BaseDataProvider):
     IDX_VOLUME = 8
     IDX_DATE = 30
     IDX_TIME = 31
+
+    # Sina timestamps are in China Standard Time
+    _CST = ZoneInfo("Asia/Shanghai")
 
     # ── interface implementation ──────────────────────────────────
 
@@ -138,15 +142,15 @@ class AShareProvider(BaseDataProvider):
                     logger.warning("Sina: zero price for {} — market closed?", sym)
                     continue
 
-                # Parse timestamp
+                # Parse timestamp — Sina returns China Standard Time (UTC+8)
                 date_str = fields[self.IDX_DATE].strip()
                 time_str = fields[self.IDX_TIME].strip()
                 try:
                     ts = datetime.strptime(
                         f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S"
-                    ).replace(tzinfo=timezone.utc)
+                    ).replace(tzinfo=self._CST)
                 except (ValueError, IndexError):
-                    ts = datetime.now(timezone.utc)
+                    ts = datetime.now(self._CST)
 
                 open_val = float(fields[self.IDX_OPEN]) or None
                 high_val = float(fields[self.IDX_HIGH]) or None

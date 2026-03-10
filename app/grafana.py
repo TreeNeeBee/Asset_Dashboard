@@ -1,14 +1,20 @@
 """Grafana dashboard JSON-model builder & provisioning helpers.
 
-Dynamically generates a Grafana dashboard from all loaded plugins.
+Dynamically generates Grafana dashboards from all loaded plugins.
 Each plugin contributes its own panel definitions via ``grafana_panels()``.
 
-The generated JSON is written to disk so Grafana's file-provisioner can
-pick it up, and can also be pushed via the Grafana HTTP API at runtime.
+**Tab / group support** — panels tagged with group names generate additional
+dashboards.  The default "首页" tab contains *all* panels; each extra tab
+contains only the panels assigned to that group.  Navigation links at the
+top of every dashboard provide a tab-like switching experience.
+
+The generated JSON files are written to disk so Grafana's file-provisioner
+can pick them up, and can also be pushed via the Grafana HTTP API at runtime.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -17,12 +23,14 @@ from loguru import logger
 
 from app.plugins import (
     API_BASE_URL,
+    BasePlugin,
     INFINITY_DATASOURCE,
     GrafanaPanelDef,
     plugin_manager,
 )
 
 DASHBOARD_UID = "asset_dashboard_main"
+DEFAULT_TAB = "首页"
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -165,42 +173,72 @@ def _overview_panels(start_id: int, start_y: int) -> tuple[list[dict], int, int]
 
 
 # ────────────────────────────────────────────────────────────────────
-# Build full dashboard from loaded plugins
+# Tab-navigation helpers
 # ────────────────────────────────────────────────────────────────────
 
-def build_dashboard_model(
-    source_map: dict[str, int] | None = None,
-    asset_map: dict[str, dict[str, int]] | None = None,
+def _group_uid(group_name: str) -> str:
+    """Stable, URL-safe UID for a group (tab) dashboard."""
+    h = hashlib.md5(group_name.encode()).hexdigest()[:10]
+    return f"asset_tab_{h}"
+
+
+def _nav_links(extra_groups: set[str]) -> list[dict[str, Any]]:
+    """Build tab-like navigation links for the dashboard top bar."""
+    tabs = [DEFAULT_TAB] + sorted(extra_groups)
+    links: list[dict[str, Any]] = []
+    for tab in tabs:
+        uid = DASHBOARD_UID if tab == DEFAULT_TAB else _group_uid(tab)
+        links.append({
+            "asDropdown": False,
+            "icon": "dashboard",
+            "includeVars": True,
+            "keepTime": True,
+            "tags": [],
+            "targetBlank": False,
+            "title": tab,
+            "tooltip": "",
+            "type": "link",
+            "url": f"/d/{uid}",
+        })
+    return links
+
+
+# ────────────────────────────────────────────────────────────────────
+# Build a single dashboard
+# ────────────────────────────────────────────────────────────────────
+
+def _build_dashboard(
+    uid: str,
+    title: str,
+    plugin_panels: list[tuple[BasePlugin, list[GrafanaPanelDef]]],
+    *,
+    group_filter: str | None = None,
+    nav_links: list[dict[str, Any]] | None = None,
+    tags: list[str] | None = None,
+    include_overview: bool = True,
 ) -> dict[str, Any]:
-    """Return the full Grafana dashboard JSON model.
+    """Build a single Grafana dashboard JSON model.
 
     Parameters
     ----------
-    source_map : {plugin_key: source_id}
-    asset_map  : {plugin_key: {symbol: asset_id}}
-
-    If not provided, empty maps are used (panels will have dummy ids).
+    group_filter
+        ``None`` → include all panels (default / 首页 tab).
+        A string → include only panels whose ``groups`` contains it.
     """
-    source_map = source_map or {}
-    asset_map = asset_map or {}
-
+    tags = tags or ["asset"]
     all_panels: list[dict] = []
     panel_id = 1
     cursor_y = 0
 
-    # ― overview section ―
-    overview, panel_id, cursor_y = _overview_panels(panel_id, cursor_y)
-    all_panels.extend(overview)
+    if include_overview:
+        overview, panel_id, cursor_y = _overview_panels(panel_id, cursor_y)
+        all_panels.extend(overview)
 
-    # ― per-plugin sections ―
-    plugins = plugin_manager.all_plugins()
-    tags = ["asset"]
-    for plug in plugins:
-        tags.append(plug.key)
-        src_id = source_map.get(plug.key, 0)
-        am = asset_map.get(plug.key, {})
+    for plug, pdefs in plugin_panels:
+        # Filter panels when building a group tab
+        if group_filter is not None:
+            pdefs = [p for p in pdefs if group_filter in p.groups]
 
-        pdefs = plug.grafana_panels(src_id, am)
         if not pdefs:
             continue
 
@@ -230,17 +268,87 @@ def build_dashboard_model(
 
         cursor_y += row_max_h
 
-    return {
-        "uid": DASHBOARD_UID,
-        "title": "Asset Dashboard",
+    model: dict[str, Any] = {
+        "uid": uid,
+        "title": title,
         "tags": tags,
-        "timezone": "browser",
+        "timezone": "Asia/Shanghai",
         "schemaVersion": 39,
         "version": 1,
-        "refresh": "5s",
+        "refresh": "1s",
         "time": {"from": "now-7d", "to": "now"},
+        "timepicker": {
+            "refresh_intervals": ["1s", "5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+        },
         "panels": all_panels,
     }
+    if nav_links:
+        model["links"] = nav_links
+    return model
+
+
+# ────────────────────────────────────────────────────────────────────
+# Multi-dashboard builder (main + group tabs)
+# ────────────────────────────────────────────────────────────────────
+
+def build_all_dashboards(
+    source_map: dict[str, int] | None = None,
+    asset_map: dict[str, dict[str, int]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Build main dashboard + one per group tab.
+
+    Returns ``{uid: dashboard_model, …}``.
+    """
+    source_map = source_map or {}
+    asset_map = asset_map or {}
+
+    # Collect panels from all plugins
+    plugins = plugin_manager.all_plugins()
+    plugin_panels: list[tuple[BasePlugin, list[GrafanaPanelDef]]] = []
+    all_groups: set[str] = set()
+    tags = ["asset"]
+
+    for plug in plugins:
+        tags.append(plug.key)
+        src_id = source_map.get(plug.key, 0)
+        am = asset_map.get(plug.key, {})
+        pdefs = plug.grafana_panels(src_id, am)
+        if pdefs:
+            plugin_panels.append((plug, pdefs))
+            for pdef in pdefs:
+                all_groups.update(pdef.groups)
+
+    # Build navigation links (only when extra groups exist)
+    nav = _nav_links(all_groups) if all_groups else []
+
+    dashboards: dict[str, dict[str, Any]] = {}
+
+    # ── Default tab (首页): all panels ───────────────────────────
+    dashboards[DASHBOARD_UID] = _build_dashboard(
+        DASHBOARD_UID, "Asset Dashboard",
+        plugin_panels,
+        nav_links=nav, tags=tags, include_overview=True,
+    )
+
+    # ── Per-group tabs: filtered panels ──────────────────────────
+    for group in sorted(all_groups):
+        uid = _group_uid(group)
+        dashboards[uid] = _build_dashboard(
+            uid, f"Asset Dashboard — {group}",
+            plugin_panels,
+            group_filter=group, nav_links=nav, tags=tags,
+            include_overview=False,
+        )
+
+    return dashboards
+
+
+def build_dashboard_model(
+    source_map: dict[str, int] | None = None,
+    asset_map: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
+    """Return the main Grafana dashboard JSON model (backward compat)."""
+    return build_all_dashboards(source_map, asset_map)[DASHBOARD_UID]
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -252,11 +360,28 @@ def export_dashboard_json(
     asset_map: dict[str, dict[str, int]] | None = None,
     output_dir: str | Path = "grafana/dashboards",
 ) -> Path:
-    """Write dashboard JSON to disk for Grafana file provisioning."""
+    """Write all dashboard JSON files to disk for Grafana file provisioning.
+
+    The main dashboard is written to ``asset_dashboard.json``.
+    Each group tab is written to ``asset_tab_<hash>.json``.
+    Stale group files are cleaned up automatically.
+    """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    fpath = out / "asset_dashboard.json"
-    model = build_dashboard_model(source_map, asset_map)
-    fpath.write_text(json.dumps(model, indent=2))
-    logger.info("Exported Grafana dashboard → {}", fpath)
-    return fpath
+
+    # Remove stale group dashboards from previous runs
+    for old in out.glob("asset_tab_*.json"):
+        old.unlink()
+
+    dashboards = build_all_dashboards(source_map, asset_map)
+
+    main_path = out / "asset_dashboard.json"
+    for uid, model in dashboards.items():
+        fpath = main_path if uid == DASHBOARD_UID else out / f"{uid}.json"
+        fpath.write_text(json.dumps(model, indent=2))
+
+    logger.info(
+        "Exported {} Grafana dashboard(s) → {}",
+        len(dashboards), out,
+    )
+    return main_path
